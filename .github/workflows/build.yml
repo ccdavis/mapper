@@ -1,0 +1,170 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Build
+      run: cargo build --release --all
+    
+    - name: Test
+      run: cargo test --all
+    
+    - name: Upload Linux Binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: mapper-linux
+        path: |
+          target/release/mapper-terrain-cli
+          target/release/mapper-terrain-gui
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        target: x86_64-pc-windows-msvc
+    
+    - name: Build
+      run: cargo build --release --all
+    
+    - name: Test
+      run: cargo test --all
+    
+    - name: Upload Windows Binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: mapper-windows
+        path: |
+          target/release/mapper-terrain-cli.exe
+          target/release/mapper-terrain-gui.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Build
+      run: cargo build --release --all
+    
+    - name: Test
+      run: cargo test --all
+    
+    - name: Upload macOS Binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: mapper-macos
+        path: |
+          target/release/mapper-terrain-cli
+          target/release/mapper-terrain-gui
+
+  # Cross-compile from Linux to Windows
+  cross-compile-windows:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Install MinGW-w64
+      run: sudo apt-get update && sudo apt-get install -y mingw-w64
+    
+    - name: Add Windows target
+      run: rustup target add x86_64-pc-windows-gnu
+    
+    - name: Build for Windows
+      run: |
+        cargo build --target x86_64-pc-windows-gnu --release --bin mapper-terrain-cli
+        cargo build --target x86_64-pc-windows-gnu --release --bin mapper-terrain-gui
+    
+    - name: Upload Cross-compiled Windows Binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: mapper-windows-cross
+        path: |
+          target/x86_64-pc-windows-gnu/release/mapper-terrain-cli.exe
+          target/x86_64-pc-windows-gnu/release/mapper-terrain-gui.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-linux, build-windows, build-macos, cross-compile-windows]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Create Release Archives
+      run: |
+        # Linux - rename terrain versions to standard names
+        cd mapper-linux
+        mv mapper-terrain-cli mapper-cli
+        mv mapper-terrain-gui mapper-gui
+        tar czf ../mapper-linux-x86_64.tar.gz *
+        cd ..
+        
+        # Windows - rename terrain versions to standard names
+        cd mapper-windows
+        mv mapper-terrain-cli.exe mapper-cli.exe
+        mv mapper-terrain-gui.exe mapper-gui.exe
+        zip ../mapper-windows-x86_64.zip *
+        cd ..
+        
+        # macOS - rename terrain versions to standard names
+        cd mapper-macos
+        mv mapper-terrain-cli mapper-cli
+        mv mapper-terrain-gui mapper-gui
+        tar czf ../mapper-macos-x86_64.tar.gz *
+        cd ..
+        
+        # Windows (cross-compiled) - rename terrain versions to standard names
+        cd mapper-windows-cross
+        mv mapper-terrain-cli.exe mapper-cli.exe
+        mv mapper-terrain-gui.exe mapper-gui.exe
+        zip ../mapper-windows-cross-x86_64.zip *
+        cd ..
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          mapper-linux-x86_64.tar.gz
+          mapper-windows-x86_64.zip
+          mapper-macos-x86_64.tar.gz
+          mapper-windows-cross-x86_64.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
