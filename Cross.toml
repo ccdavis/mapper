@@ -1,0 +1,11 @@
+# Configuration for cargo-cross
+# This allows easier cross-compilation using Docker
+
+[build]
+default-target = "x86_64-pc-windows-gnu"
+
+[target.x86_64-pc-windows-gnu]
+image = "ghcr.io/cross-rs/cross:x86_64-pc-windows-gnu"
+
+[target.x86_64-pc-windows-gnu.env]
+passthrough = ["RUSTFLAGS"]

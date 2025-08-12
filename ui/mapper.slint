@@ -1,0 +1,409 @@
+import { StandardButton, VerticalBox, HorizontalBox, Button, ScrollView, Slider } from "std-widgets.slint";
+
+export component MapperWindow inherits Window {
+    title: "Mapper";
+    preferred-width: 1024px;
+    preferred-height: 768px;
+    background: #f0f0f0;
+    
+    callback menu-start();
+    callback menu-exit();
+    callback menu-about();
+    callback menu-settings();
+    
+    in-out property <string> map-status: "Use File → Generate to create a new map";
+    in-out property <image> map-image;
+    in-out property <bool> has-map: false;
+    in-out property <bool> is-generating: false;
+    
+    // Settings properties
+    in-out property <float> river-density: 0.5;
+    in-out property <float> city-density: 0.5;
+    in-out property <float> land-percentage: 0.4;
+    
+    property <bool> show-about: false;
+    property <bool> show-settings: false;
+    
+    VerticalBox {
+        // Menu Bar
+        Rectangle {
+            background: #e0e0e0;
+            height: 35px;
+            
+            HorizontalBox {
+                padding: 5px;
+                spacing: 10px;
+                alignment: start;
+                
+                // File Menu
+                Button {
+                    text: "File";
+                    width: 60px;
+                    clicked => { file_popup.show(); }
+                }
+                
+                // Help Menu  
+                Button {
+                    text: "Help";
+                    width: 60px;
+                    clicked => { help_popup.show(); }
+                }
+            }
+        }
+        
+        // Main Content Area
+        Rectangle {
+            background: white;
+            border-radius: 8px;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #00000020;
+            drop-shadow-offset-x: 0px;
+            drop-shadow-offset-y: 2px;
+            clip: true;
+            
+            if !root.has-map : VerticalBox {
+                alignment: center;
+                spacing: 10px;
+                
+                if !root.is-generating : Text {
+                    text: "Map Display Area";
+                    font-size: 24px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+                
+                if root.is-generating : VerticalBox {
+                    alignment: center;
+                    spacing: 20px;
+                    
+                    // Simple progress indicator
+                    Rectangle {
+                        width: 200px;
+                        height: 6px;
+                        background: #e0e0e0;
+                        border-radius: 3px;
+                        
+                        Rectangle {
+                            width: parent.width * 0.3;
+                            height: parent.height;
+                            background: #4CAF50;
+                            border-radius: 3px;
+                            x: parent.width * 0.35;
+                        }
+                    }
+                    
+                    Text {
+                        text: "Generating map...";
+                        font-size: 18px;
+                        font-weight: 500;
+                        horizontal-alignment: center;
+                        color: #444;
+                    }
+                    
+                    Text {
+                        text: "This may take a few seconds";
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        color: #888;
+                    }
+                }
+                
+                if !root.is-generating : Text {
+                    text: root.map-status;
+                    horizontal-alignment: center;
+                    color: #666;
+                }
+            }
+            
+            if root.has-map : ScrollView {
+                viewport-width: root.width;
+                viewport-height: root.height;
+                
+                Image {
+                    source: root.map-image;
+                    image-fit: contain;
+                }
+            }
+        }
+    }
+    
+    // File Menu Popup
+    file_popup := PopupWindow {
+        x: 5px;
+        y: 40px;
+        width: 150px;
+        close-policy: close-on-click;
+        
+        Rectangle {
+            background: white;
+            border-color: #ccc;
+            border-width: 1px;
+            drop-shadow-blur: 4px;
+            drop-shadow-color: #00000040;
+            
+            VerticalBox {
+                padding: 5px;
+                
+                Button {
+                    text: "Generate";
+                    width: 140px;
+                    height: 30px;
+                    clicked => {
+                        root.is-generating = true;
+                        root.menu-start();
+                        file_popup.close();
+                    }
+                }
+                
+                Rectangle {
+                    height: 1px;
+                    background: #ddd;
+                }
+                
+                Button {
+                    text: "Settings";
+                    width: 140px;
+                    height: 30px;
+                    clicked => {
+                        root.show-settings = true;
+                        file_popup.close();
+                    }
+                }
+                
+                Rectangle {
+                    height: 1px;
+                    background: #ddd;
+                }
+                
+                Button {
+                    text: "Exit";
+                    width: 140px;
+                    height: 30px;
+                    clicked => {
+                        root.menu-exit();
+                        file_popup.close();
+                    }
+                }
+            }
+        }
+    }
+    
+    // Help Menu Popup
+    help_popup := PopupWindow {
+        x: 75px;
+        y: 40px;
+        width: 150px;
+        close-policy: close-on-click;
+        
+        Rectangle {
+            background: white;
+            border-color: #ccc;
+            border-width: 1px;
+            drop-shadow-blur: 4px;
+            drop-shadow-color: #00000040;
+            
+            VerticalBox {
+                padding: 5px;
+                
+                Button {
+                    text: "About";
+                    width: 140px;
+                    height: 30px;
+                    clicked => {
+                        root.menu-about();
+                        help_popup.close();
+                    }
+                }
+            }
+        }
+    }
+    
+    // Settings Dialog
+    if show-settings : Rectangle {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        background: #00000080;
+        
+        TouchArea {
+            clicked => { root.show-settings = false; }
+        }
+        
+        Rectangle {
+            x: (parent.width - 400px) / 2;
+            y: (parent.height - 350px) / 2;
+            width: 400px;
+            height: 350px;
+            background: white;
+            border-radius: 8px;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #00000040;
+            
+            VerticalBox {
+                padding: 20px;
+                spacing: 15px;
+                
+                Text {
+                    text: "Map Generation Settings";
+                    font-size: 18px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+                
+                Rectangle {
+                    height: 1px;
+                    background: #ddd;
+                }
+                
+                // River Density
+                VerticalBox {
+                    spacing: 5px;
+                    
+                    HorizontalBox {
+                        Text {
+                            text: "Rivers:";
+                            width: 100px;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "Low";
+                            color: #888;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                        Slider {
+                            width: 150px;
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> root.river-density;
+                        }
+                        Text {
+                            text: "High";
+                            color: #888;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                
+                // City Density
+                VerticalBox {
+                    spacing: 5px;
+                    
+                    HorizontalBox {
+                        Text {
+                            text: "Cities:";
+                            width: 100px;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "Low";
+                            color: #888;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                        Slider {
+                            width: 150px;
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> root.city-density;
+                        }
+                        Text {
+                            text: "High";
+                            color: #888;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                
+                // Land Percentage
+                VerticalBox {
+                    spacing: 5px;
+                    
+                    HorizontalBox {
+                        Text {
+                            text: "Land %:";
+                            width: 100px;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "Low";
+                            color: #888;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                        Slider {
+                            width: 150px;
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> root.land-percentage;
+                        }
+                        Text {
+                            text: "High";
+                            color: #888;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                
+                Rectangle {
+                    height: 1px;
+                    background: #ddd;
+                }
+                
+                // Current values display
+                VerticalBox {
+                    spacing: 5px;
+                    
+                    Text {
+                        text: @tr("Rivers: {}%", Math.round(root.river-density * 100));
+                        color: #666;
+                        font-size: 12px;
+                    }
+                    Text {
+                        text: @tr("Cities: {}%", Math.round(root.city-density * 100));
+                        color: #666;
+                        font-size: 12px;
+                    }
+                    Text {
+                        text: @tr("Land: {}%", Math.round(root.land-percentage * 100));
+                        color: #666;
+                        font-size: 12px;
+                    }
+                }
+                
+                Rectangle {
+                    height: 1px;
+                    background: #ddd;
+                }
+                
+                HorizontalBox {
+                    alignment: center;
+                    spacing: 10px;
+                    
+                    Button {
+                        text: "Reset Defaults";
+                        width: 120px;
+                        clicked => {
+                            root.river-density = 0.5;
+                            root.city-density = 0.5;
+                            root.land-percentage = 0.4;
+                        }
+                    }
+                    
+                    Button {
+                        text: "Close";
+                        width: 100px;
+                        primary: true;
+                        clicked => {
+                            root.show-settings = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
