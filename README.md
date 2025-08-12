@@ -2,6 +2,10 @@
 
 A Rust application for generating and displaying procedural maps with both CLI and GUI interfaces using the Slint framework.
 
+This is my first true vibe-coded app. It's mainly meant to show how to set up a Rust Slint UI application that can build for multiple platforms at once. I've tested on Linux and Windows.  The map generation was just the only interesting thing I could think to put into a GUI application that wouldn't get too complicated. 
+
+The maps are so-so currently. They have labels (testing the cross platform fonts.) There are roads, rivers, lakes, oceans and cities with populations. The terrain is generated with a noise algorithm and a bunch of hacks to make it look more realistic, only sort successfully.
+
 ## Features
 
 - **File Menu**: Start map generation and Exit options
