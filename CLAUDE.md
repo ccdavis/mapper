@@ -5,11 +5,20 @@
 ### Terrain Algorithm Synchronization
 **CRITICAL**: All build systems are configured to use the terrain generation versions (`mapper-terrain-cli` and `mapper-terrain-gui`) as the primary executables. When making improvements to the terrain generation algorithm, ensure all platforms receive the updates:
 
-1. **Source Files**: The terrain algorithm is implemented in:
-   - `src/terrain_generator.rs` - Core terrain generation logic with configurable settings
+1. **Source Files**: The code is organized as a library (`src/lib.rs`) with two thin binaries:
+   - `src/terrain_generator/` - Core terrain generation, split into focused modules:
+     - `mod.rs` - `TerrainGenerator` struct and generation orchestration
+     - `types.rs` - Data types (`TerrainMap`, `City`, `Road`, `GenerationSettings`, ...)
+     - `elevation.rs` - Continent plans (soft blob masks) + domain-warped fBm elevation,
+       histogram-equalized with a quantile sea level so `land_percentage` is exact
+     - `climate.rs` - Moisture (noise + distance-to-ocean) and temperature fields
+     - `biome.rs` - Biome classification (thresholds are area shares) and colors
+     - `hydrology.rs` - Priority-flood pit filling, lakes, flow accumulation, river tracing
+     - `settlements.rs` - City placement, A* road pathfinding, bridges
+     - `labels.rs` / `names.rs` - Region labeling and procedural names
    - `src/terrain_renderer.rs` - Shared rendering module for both CLI and GUI
    - `src/main_terrain.rs` - CLI entry point with PNG export and command-line arguments
-   - `src/main_terrain_gui.rs` - GUI entry point with Slint rendering and settings dialog
+   - `src/main_gui_terrain.rs` - GUI entry point with Slint rendering and settings dialog
 
 2. **Binary Names**: The build system automatically renames binaries:
    - `mapper-terrain-cli` → `mapper-cli` (or `.exe` on Windows)
@@ -50,12 +59,15 @@ After modifying the terrain generation algorithm:
 ### Key Features to Maintain
 
 The terrain generation system includes:
-- Perlin noise-based elevation, moisture, and temperature maps
-- Biome determination based on environmental factors
-- River generation with water flow simulation
+- Domain-warped fractal (fBm + ridged) elevation biased by per-seed continent plans
+- Histogram-equalized elevations with a quantile sea level (land percentage is exact)
+- Moisture from noise + distance-to-ocean; temperature from latitude + elevation
+- Biome determination based on environmental factors (thresholds are area shares)
+- Priority-flood hydrology: rivers always reach the sea, depressions become lakes,
+  flow accumulation makes rivers join and widen downstream
 - Procedural place name generation
 - PNG export at configurable resolutions
-- Smooth color gradients in GUI rendering
+- Smooth color gradients and hillshaded relief in rendering
 - Configurable generation settings for river density, city density, and land percentage
 - GUI settings dialog with visual feedback and sliders
 - CLI command-line arguments for settings control
@@ -63,6 +75,7 @@ The terrain generation system includes:
 ## Project Architecture
 
 The project uses a modular architecture:
+- All shared code lives in the `mapper` library (`src/lib.rs`); the binaries are thin wrappers
 - Core terrain generation is separate from UI
 - Shared rendering module (`terrain_renderer.rs`) eliminates code duplication
 - Settings system (`GenerationSettings`) provides consistent configuration across versions
@@ -83,10 +96,11 @@ The `GenerationSettings` structure controls map generation with three parameters
 - Settings apply to next generated map
 
 #### CLI Settings Access
-- Command-line arguments: `--rivers`, `--cities`, `--land`
-- Each accepts values from 0.0 to 1.0
+- Command-line arguments: `--rivers`, `--cities`, `--land` (each 0.0 to 1.0)
+- `--seed <u32>` for reproducible maps, `--output <file>` for the PNG filename
+- Any option switches to non-interactive quick mode; no options opens the menu
 - Use `--help` for usage information
-- Example: `./mapper-terrain-cli --rivers 0.8 --cities 0.3 --land 0.6`
+- Example: `./mapper-terrain-cli --rivers 0.8 --cities 0.3 --land 0.6 --seed 42 --output map.png`
 
 ## Future Improvements
 

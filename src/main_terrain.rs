@@ -1,9 +1,5 @@
-mod map_generator;
-mod terrain_generator;
-mod terrain_renderer;
-
-use terrain_generator::{TerrainGenerator, TerrainMap, Biome, GenerationSettings};
-use terrain_renderer::TerrainRenderer;
+use mapper::terrain_generator::{Biome, GenerationSettings, TerrainGenerator, TerrainMap};
+use mapper::terrain_renderer::TerrainRenderer;
 use std::io::{self, Write};
 use std::time::SystemTime;
 use std::env;
@@ -270,8 +266,7 @@ fn save_terrain_png(map: &TerrainMap, filename: &str, base_scale: u32) -> Result
         ];
         
         let mut best_pos = None;
-        let mut needs_leader = false;
-        
+
         // First try close positions without leader lines
         for &(dx, dy) in close_offsets.iter() {
             let test_x = city_x as i32 + dx;
@@ -282,7 +277,6 @@ fn save_terrain_png(map: &TerrainMap, filename: &str, base_scale: u32) -> Result
                test_y + text_height < img.height() as i32 &&
                !check_overlap(test_x, test_y, text_width, text_height, &occupied_regions) {
                 best_pos = Some((test_x, test_y));
-                needs_leader = false;
                 break;
             }
         }
@@ -298,7 +292,6 @@ fn save_terrain_png(map: &TerrainMap, filename: &str, base_scale: u32) -> Result
                    test_y + text_height < img.height() as i32 &&
                    !check_overlap(test_x, test_y, text_width, text_height, &occupied_regions) {
                     best_pos = Some((test_x, test_y));
-                    needs_leader = true;
                     break;
                 }
             }
@@ -310,7 +303,6 @@ fn save_terrain_png(map: &TerrainMap, filename: &str, base_scale: u32) -> Result
         } else {
             // For important cities (large population), try harder to find a spot
             if city.population > 100000 {
-                needs_leader = true;
                 // Try to find a position with minimal overlap
                 let search_radius = scale as i32 * 6;
                 let mut best_angle_pos = None;
@@ -599,17 +591,23 @@ fn save_terrain_png(map: &TerrainMap, filename: &str, base_scale: u32) -> Result
     Ok(())
 }
 
-fn parse_args() -> GenerationSettings {
+fn parse_args() -> CliArgs {
     let args: Vec<String> = env::args().collect();
-    let mut settings = GenerationSettings::default();
-    
+    let mut cli = CliArgs {
+        settings: GenerationSettings::default(),
+        seed: None,
+        output: None,
+        quick: false,
+    };
+
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
             "--rivers" => {
                 if i + 1 < args.len() {
                     if let Ok(value) = args[i + 1].parse::<f32>() {
-                        settings.river_density = value.clamp(0.0, 1.0);
+                        cli.settings.river_density = value.clamp(0.0, 1.0);
+                        cli.quick = true;
                         i += 1;
                     }
                 }
@@ -617,7 +615,8 @@ fn parse_args() -> GenerationSettings {
             "--cities" => {
                 if i + 1 < args.len() {
                     if let Ok(value) = args[i + 1].parse::<f32>() {
-                        settings.city_density = value.clamp(0.0, 1.0);
+                        cli.settings.city_density = value.clamp(0.0, 1.0);
+                        cli.quick = true;
                         i += 1;
                     }
                 }
@@ -625,9 +624,26 @@ fn parse_args() -> GenerationSettings {
             "--land" => {
                 if i + 1 < args.len() {
                     if let Ok(value) = args[i + 1].parse::<f32>() {
-                        settings.land_percentage = value.clamp(0.0, 1.0);
+                        cli.settings.land_percentage = value.clamp(0.0, 1.0);
+                        cli.quick = true;
                         i += 1;
                     }
+                }
+            }
+            "--seed" => {
+                if i + 1 < args.len() {
+                    if let Ok(value) = args[i + 1].parse::<u32>() {
+                        cli.seed = Some(value);
+                        cli.quick = true;
+                        i += 1;
+                    }
+                }
+            }
+            "--output" => {
+                if i + 1 < args.len() {
+                    cli.output = Some(args[i + 1].clone());
+                    cli.quick = true;
+                    i += 1;
                 }
             }
             "--help" => {
@@ -637,47 +653,54 @@ fn parse_args() -> GenerationSettings {
                 println!("  --rivers <0.0-1.0>  Set river density (default: 0.5)");
                 println!("  --cities <0.0-1.0>  Set city density (default: 0.5)");
                 println!("  --land <0.0-1.0>    Set land percentage (default: 0.4)");
+                println!("  --seed <u32>        Seed for reproducible maps (default: current time)");
+                println!("  --output <file>     Output PNG filename (default: terrain_map_<seed>.png)");
                 println!("  --help              Show this help message");
+                println!("\nAny option switches to non-interactive quick mode.");
                 println!("\nExample:");
-                println!("  mapper-terrain-cli --rivers 0.8 --cities 0.3 --land 0.6");
+                println!("  mapper-terrain-cli --rivers 0.8 --cities 0.3 --land 0.6 --seed 42 --output map.png");
                 std::process::exit(0);
             }
             _ => {}
         }
         i += 1;
     }
-    
-    settings
+
+    cli
+}
+
+struct CliArgs {
+    settings: GenerationSettings,
+    seed: Option<u32>,
+    output: Option<String>,
+    quick: bool,
 }
 
 fn main() {
-    let settings = parse_args();
-    
-    // Check if we should run in quick mode (if any settings were provided via CLI)
-    let args: Vec<String> = std::env::args().collect();
-    let quick_mode = args.len() > 1 && args.iter().any(|arg| 
-        arg.starts_with("--land") || arg.starts_with("--rivers") || arg.starts_with("--cities"));
-    
-    if quick_mode {
+    let cli = parse_args();
+    let settings = cli.settings;
+
+    if cli.quick {
         // Quick mode: generate immediately and exit
         println!("Generating terrain map with settings: Rivers={:.0}%, Cities={:.0}%, Land={:.0}%",
                  settings.river_density * 100.0,
                  settings.city_density * 100.0,
                  settings.land_percentage * 100.0);
-        
-        let seed = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
+
+        let seed = cli.seed.unwrap_or_else(|| {
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as u32
+        });
+        println!("Seed: {}", seed);
         let mut generator = TerrainGenerator::new_with_settings(seed, settings);
         let map = generator.generate(320, 240);  // Ultra-high resolution: 320x240 tiles
-        
-        let timestamp = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let filename = format!("terrain_map_{}.png", timestamp);
-        
+
+        let filename = cli
+            .output
+            .unwrap_or_else(|| format!("terrain_map_{}.png", seed));
+
         match save_terrain_png(&map, &filename, 5) {
             Ok(_) => println!("Map saved as: {}", filename),
             Err(e) => eprintln!("Error saving map: {}", e),

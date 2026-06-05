@@ -3,13 +3,9 @@ name = "mapper"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "mapper-cli"
-path = "src/main.rs"
-
-[[bin]]
-name = "mapper-gui"
-path = "src/main_gui.rs"
+[lib]
+name = "mapper"
+path = "src/lib.rs"
 
 [[bin]]
 name = "mapper-terrain-cli"

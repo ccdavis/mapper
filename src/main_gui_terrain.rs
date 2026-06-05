@@ -1,9 +1,5 @@
-mod map_generator;
-mod terrain_generator;
-mod terrain_renderer;
-
-use terrain_generator::{TerrainGenerator, TerrainMap, GenerationSettings};
-use terrain_renderer::TerrainRenderer;
+use mapper::terrain_generator::{GenerationSettings, TerrainGenerator, TerrainMap};
+use mapper::terrain_renderer::TerrainRenderer;
 use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 use std::time::SystemTime;
 use rusttype::{Font, Scale};
