@@ -115,7 +115,7 @@ fn save_terrain_png(map: &TerrainMap, filename: &str, base_scale: u32) -> Result
     let mut img = TerrainRenderer::render_to_image(map, scale);
     
     // Load font for text rendering
-    let font_data = include_bytes!("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+    let font_data = include_bytes!("../assets/fonts/DejaVuSans.ttf");
     let font = Font::try_from_bytes(font_data as &[u8]).unwrap();
     
     // Track occupied label regions to avoid overlaps

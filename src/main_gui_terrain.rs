@@ -37,8 +37,9 @@ fn generate_terrain_image(map: &TerrainMap) -> Image {
     ).unwrap();
     
     // Load font for text rendering
-    if let Ok(font_data) = std::fs::read("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf") {
-        if let Some(font) = Font::try_from_vec(font_data) {
+    let font_data = include_bytes!("../assets/fonts/DejaVuSans.ttf");
+    {
+        if let Some(font) = Font::try_from_bytes(font_data as &[u8]) {
             // Convert to RGB for text rendering
             let mut rgb_img = image::DynamicImage::ImageRgba8(img.clone()).to_rgb8();
             
