@@ -113,6 +113,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [build-linux, build-windows, build-macos, cross-compile-windows]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v4
     
